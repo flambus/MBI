@@ -8,7 +8,7 @@ from skimage.morphology import erosion, dilation, opening, closing
 from skimage.measure import label, regionprops
 from skimage.color import label2rgb
 
-im = rgb2gray(imread("python/img/lighttest/testlight_white_2.png"))
+im = rgb2gray(imread("testlight_white_2.png"))
 imshow(im)
 im_bw = im<0.8
 imshow(im_bw)

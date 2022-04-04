@@ -2,7 +2,7 @@ import cv2
 import numpy as np;
 
 # Read image
-im = cv2.imread("C:/IljaGavrylov/Projects/MBI/LIA/python/img/lighttest/testlight_white_thin.png")
+im = cv2.imread("testlight_white_thin.png")
 
 #im = cv2.resize(im, (400, 400))
 

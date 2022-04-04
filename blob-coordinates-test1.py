@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import skimage.feature
 #%matplotlib inline
 
-image = cv2.imread('img/lighttest/testlight_white_thin.png')
+image = cv2.imread('testlight_white_thin.png')
 
 image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

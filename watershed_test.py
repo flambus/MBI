@@ -8,7 +8,7 @@ from skimage.feature import peak_local_max
 
 
 # Generate an initial image with two overlapping circles
-image = cv2.imread("img/lighttest/testlight_white_thin.png")
+image = cv2.imread("img/testlight_white_thin.png")
 
 # Now we want to separate the two objects in image
 # Generate the markers as local maxima of the distance to the background

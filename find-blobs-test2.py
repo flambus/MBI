@@ -5,7 +5,7 @@ import argparse
 import random as rng
 rng.seed(12345)
 
-src = cv.imread('testlight_white_thin.png')
+src = cv.imread('img/testlight_white_thin.png')
 src = cv.resize(src, (400, 400))
 
 # Show source image

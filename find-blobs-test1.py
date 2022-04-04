@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
 
-img = cv.imread('testlight_white_thin.png')
+img = cv.imread('img/testlight_white_thin.png')
 
 imgG = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 imgG = cv.resize(imgG, (400, 400))

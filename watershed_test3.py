@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import skimage.feature
 import os
 
-img = cv.imread('C:/IljaGavrylov/Projects/MBI/LIA/python/img/lighttest/testlight_white_2.png')
+img = cv.imread('img/testlight_white_2.png')
 img = cv.resize(img, (400, 400))
 gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
 ret, thresh = cv.threshold(gray,0,255,cv.THRESH_BINARY_INV+cv.THRESH_OTSU)

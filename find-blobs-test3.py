@@ -2,7 +2,7 @@ import numpy as np
 import cv2 as cv
 from matplotlib import pyplot as plt
 import skimage.feature
-img = cv.imread('water_coins.jpg')
+img = cv.imread('img/water_coins.jpg')
 gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
 ret, thresh = cv.threshold(gray,0,255,cv.THRESH_BINARY_INV+cv.THRESH_OTSU)
 

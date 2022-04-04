@@ -14,7 +14,7 @@ import cv2
 # # load the image and perform pyramid mean shift filtering
 # # to aid the thresholding step
 # image = cv2.imread(args["image"])
-image = cv2.imread('img/lighttest/testlight_white_thin.png')
+image = cv2.imread('img/testlight_white_thin.png')
 shifted = cv2.pyrMeanShiftFiltering(image, 21, 51)
 cv2.imshow("Input", image)
 # convert the mean shift image to grayscale, then apply

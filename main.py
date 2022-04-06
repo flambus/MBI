@@ -143,7 +143,7 @@ elif sys.version_info >= (3, 0):
     uri = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme="file", \
                                                            netloc=None, path=tempdir, params=None, query=None,
                                                            fragment=None))
-    open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
+    #open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
     flag_virtual = 1
     print("The real controller is not found or busy with another app.")
     print("The virtual controller is opened to check the operation of the library.")

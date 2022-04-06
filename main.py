@@ -210,13 +210,18 @@ while((currentPosX + currentUPosX) < (finishPosX + ufinishPosX)):
     sure_fg = np.uint8(sure_fg)
     unknown = cv.subtract(sure_bg, sure_fg)
     blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
-
+    #sort by first column
+    blobs = blobs[blobs[:, 0].argsort()]
     #blob coordinates to step instructions
+    xMoveAggregator = 0
+    yMoveAggregator = 0
     for blob in blobs:
         moveXinPX = blob[0] - 1024
         moveYinPX = blob[1] - 1024
-        xpxToSteps = moveXinPX
-
+        xPxToSteps = moveXinPX * 0.1925
+        yPxToSteps = moveYinPX * 0.1925
+        xMoveAggregator += xPxToSteps
+        yMoveAggregator += yPxToSteps
 
 # images = np.ndarray
 #

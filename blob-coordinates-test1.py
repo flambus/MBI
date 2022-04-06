@@ -25,6 +25,7 @@ height, width = img.shape[:2]
 print(height, width)
 blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
 
+blobs = blobs[blobs[:, 0].argsort()]
 #cv2.imshow('image', image)
 print(blobs)
 print(type(blobs))

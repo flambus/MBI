@@ -209,27 +209,14 @@ while((currentPosX + currentUPosX) < (finishPosX + ufinishPosX)):
     # Finding unknown region
     sure_fg = np.uint8(sure_fg)
     unknown = cv.subtract(sure_bg, sure_fg)
-    # Marker labelling
-    ret, markers = cv.connectedComponents(sure_fg)
-    # Add one to all labels so that sure background is not 0, but 1
-    markers = markers + 1
-    # Now, mark the region of unknown with zero
-    markers[unknown == 255] = 0
-    # Marker labelling
-    ret, markers = cv.connectedComponents(sure_fg)
-    # Add one to all labels so that sure background is not 0, but 1
-    markers = markers + 1
-    # Now, mark the region of unknown with zero
-    markers[unknown == 255] = 0
-    mask_1 = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    mask_1[mask_1 < 20] = 0
-    mask_1[mask_1 > 0] = 255
+    blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
 
-    image_4 = cv.bitwise_or(img, img, mask=mask_1)
+    #blob coordinates to step instructions
+    for blob in blobs:
+        moveXinPX = blob[0] - 1024
+        moveYinPX = blob[1] - 1024
+        xpxToSteps = moveXinPX
 
-    image_6 = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-
-    blobs = skimage.feature.blob_log(image_6, min_sigma=3, max_sigma=4, num_sigma=1, threshold=0.02)
 
 # images = np.ndarray
 #

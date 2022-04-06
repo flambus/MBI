@@ -3,7 +3,7 @@ A simple Program for grabing video from basler camera and converting it to openc
 Tested on Basler acA1300-200uc (USB3, linux 64bit , python 3.5)
 '''
 from pypylon import pylon
-import cv2
+import cv2 as cv
 import numpy as np
 from ctypes import *
 import time
@@ -12,7 +12,18 @@ import sys
 import platform
 import tempfile
 import re
+import skimage.feature
 
+# conecting to the first available camera
+camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+
+# Grabing Continusely (video) with minimal delay
+camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+converter = pylon.ImageFormatConverter()
+
+# converting to opencv bgr format
+converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
 if sys.version_info >= (3, 0):
     import urllib.parse
@@ -67,27 +78,6 @@ except OSError as err:
             "that the architecture of the system and the interpreter is the same")
     exit()
 
-# conecting to the first available camera
-camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
-
-# Grabing Continusely (video) with minimal delay
-camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-converter = pylon.ImageFormatConverter()
-
-# converting to opencv bgr format
-converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-
-def left(lib, device_id):
-    print("\nMoving left")
-    result = lib.command_left(device_id)
-    print("Result: " + repr(result))
-
-def right(lib, device_id):
-    print("\nMoving right")
-    result = lib.command_right(device_id)
-    print("Result: " + repr(result))
-
 def move(lib, device_id, distance, udistance):
     print("\nGoing to {0} steps, {1} microsteps".format(distance, udistance))
     result = lib.command_move(device_id, distance, udistance)
@@ -137,11 +127,13 @@ for dev_ind in range(0, dev_count):
 
 flag_virtual = 0
 
-open_name = None
+open_nameX = None
+open_nameY = None
 if len(sys.argv) > 1:
-    open_name = sys.argv[1]
+    open_nameX = sys.argv[1]
 elif dev_count > 0:
-    open_name = lib.get_device_name(devenum, 0)
+    open_nameX = lib.get_device_name(devenum, 0)
+    open_nameY = lib.get_device_name(devenum, 1)
 elif sys.version_info >= (3, 0):
     # use URI for virtual device when there is new urllib python3 API
     tempdir = tempfile.gettempdir() + "/testdevice.bin"
@@ -151,27 +143,28 @@ elif sys.version_info >= (3, 0):
     uri = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme="file", \
                                                            netloc=None, path=tempdir, params=None, query=None,
                                                            fragment=None))
-    open_name = re.sub(r'^file', 'xi-emu', uri).encode()
+    open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
     flag_virtual = 1
     print("The real controller is not found or busy with another app.")
     print("The virtual controller is opened to check the operation of the library.")
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
-if not open_name:
+if not open_nameX:
     exit(1)
 
-if type(open_name) is str:
-    open_name = open_name.encode()
+if type(open_nameX) is str:
+    open_nameX = open_nameX.encode()
 
-print("\nOpen device " + repr(open_name))
-device_id = lib.open_device(open_name)
-print("Device id: " + repr(device_id))
+if type(open_nameY) is str:
+    open_nameY = open_nameY.encode()
 
-print("\nClosing")
+print("\nOpen device " + repr(open_nameX))
+device_id1 = lib.open_device(open_nameX)
+print("Device id: " + repr(device_id1))
 
-# The device_t device parameter in this function is a C pointer, unlike most library functions that use this parameter
-lib.close_device(byref(cast(device_id, POINTER(c_int))))
-print("Done")
+print("\nOpen device " + repr(open_nameY))
+device_id2 = lib.open_device(open_nameY)
+print("Device id: " + repr(device_id2))
 
 if flag_virtual == 1:
     print(" ")
@@ -179,44 +172,103 @@ if flag_virtual == 1:
     print("The virtual controller is opened to check the operation of the library.")
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
+startPosX = -1433
+ustartPosX = -242
+startPosY = 4490
+ustartPosY = 73
+finishPosX = 24835
+ufinishPosX = 165
+finishPosY = 4490
+ufinishPosY = 73
 
+currentPosX, currentUPosX = get_position(lib, device_id1)
+currentPosY, currentUPosY = get_position(lib, device_id2)
 
+xDif = (startPosX + ustartPosX) - (currentPosX + currentUPosX)
+yDif = (startPosY + ustartPosY) - (currentPosY + currentUPosY)
 
+move(lib, device_id1, currentPosX + xDif, currentUPosX)
+move(lib, device_id2, currentPosY + yDif, currentUPosY)
 
-#main part
+while((currentPosX + currentUPosX) < (finishPosX + ufinishPosX)):
+    grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+    if grabResult.GrabSucceeded():
+        image = converter.Convert(grabResult)
+        img = image.GetArray()
+    grabResult.Release()
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
+    # noise removal
+    kernel = np.ones((3, 3), np.uint8)
+    opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel, iterations=2)
+    # sure background area
+    sure_bg = cv.dilate(opening, kernel, iterations=3)
+    # Finding sure foreground area
+    dist_transform = cv.distanceTransform(opening, cv.DIST_L2, 5)
+    ret, sure_fg = cv.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+    # Finding unknown region
+    sure_fg = np.uint8(sure_fg)
+    unknown = cv.subtract(sure_bg, sure_fg)
+    # Marker labelling
+    ret, markers = cv.connectedComponents(sure_fg)
+    # Add one to all labels so that sure background is not 0, but 1
+    markers = markers + 1
+    # Now, mark the region of unknown with zero
+    markers[unknown == 255] = 0
+    # Marker labelling
+    ret, markers = cv.connectedComponents(sure_fg)
+    # Add one to all labels so that sure background is not 0, but 1
+    markers = markers + 1
+    # Now, mark the region of unknown with zero
+    markers[unknown == 255] = 0
+    mask_1 = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    mask_1[mask_1 < 20] = 0
+    mask_1[mask_1 > 0] = 255
 
-images = np.ndarray
+    image_4 = cv.bitwise_or(img, img, mask=mask_1)
 
-try:
-    while camera.IsGrabbing():
-        grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-        if grabResult.GrabSucceeded():
-            # Access the image data
-            image = converter.Convert(grabResult)
-            startpos, ustartpos = get_position(lib, device_id)
-            move(lib, device_id, startpos + 1000, ustartpos + 1000)
-            time.sleep(5)
-            img = image.GetArray()
-            imgG = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            np.append(images, imgG)
-            cv2.namedWindow('title', cv2.WINDOW_NORMAL)
-            cv2.imshow('title', imgG)
-            k = cv2.waitKey(1)
-            if k == 27:
-                break
-        grabResult.Release()
-except KeyboardInterrupt:
-    raise Exception("stop")
+    image_6 = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
+    blobs = skimage.feature.blob_log(image_6, min_sigma=3, max_sigma=4, num_sigma=1, threshold=0.02)
 
-panorama = np.ndarray(images.shape[0] * 2048, images.shape[1])
-for image in images:
-    for i in range(2048):
-        np.append(panorama[i], image[i])
-cv2.namedWindow('panorama', cv2.WINDOW_NORMAL)
-cv2.imshow('panorama', panorama)
-# Releasing the resource
-
+# images = np.ndarray
+#
+# try:
+#     while camera.IsGrabbing():
+#         grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+#         if grabResult.GrabSucceeded():
+#             # Access the image data
+#             image = converter.Convert(grabResult)
+#             startpos, ustartpos = get_position(lib, device_id1)
+#             move(lib, device_id1, startpos + 1000, ustartpos + 1000)
+#             time.sleep(5)
+#             img = image.GetArray()
+#             imgG = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#             np.append(images, imgG)
+#             cv2.namedWindow('title', cv2.WINDOW_NORMAL)
+#             cv2.imshow('title', imgG)
+#             k = cv2.waitKey(1)
+#             if k == 27:
+#                 break
+#         grabResult.Release()
+# except KeyboardInterrupt:
+#     raise Exception("stop")
+#
+#
+# panorama = np.ndarray(images.shape[0] * 2048, images.shape[1])
+# for image in images:
+#     for i in range(2048):
+#         np.append(panorama[i], image[i])
+# cv2.namedWindow('panorama', cv2.WINDOW_NORMAL)
+# cv2.imshow('panorama', panorama)
+# # Releasing the resource
+#
 camera.StopGrabbing()
+#
+# cv2.destroyAllWindows()
 
-cv2.destroyAllWindows()
+print("\nClosing")
+
+# The device_t device parameter in this function is a C pointer, unlike most library functions that use this parameter
+lib.close_device(byref(cast(device_id1, POINTER(c_int))))
+print("Done")

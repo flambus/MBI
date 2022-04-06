@@ -5,6 +5,19 @@ import sys
 import platform
 import tempfile
 import re
+from pypylon import pylon
+import cv2
+
+# conecting to the first available camera
+camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+
+# Grabing Continusely (video) with minimal delay
+camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+converter = pylon.ImageFormatConverter()
+
+# converting to opencv bgr format
+converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
 if sys.version_info >= (3, 0):
     import urllib.parse
@@ -67,7 +80,6 @@ except OSError as err:
             "Can't load libximc library. Please add all shared libraries to the appropriate places. It is decribed in detail in developers' documentation. On Linux make sure you installed libximc-dev package.\nmake sure that the architecture of the system and the interpreter is the same")
     exit()
 
-
 def test_info(lib, device_id):
     print("\nGet device info")
     x_device_information = device_information_t()
@@ -113,6 +125,10 @@ def test_left(lib, device_id):
     result = lib.command_left(device_id)
     print("Result: " + repr(result))
 
+def right(lib, device_id):
+    print("\nMoving right")
+    result = lib.command_right(device_id)
+    print("Result: " + repr(result))
 
 def test_move(lib, device_id, distance, udistance):
     print("\nGoing to {0} steps, {1} microsteps".format(distance, udistance))
@@ -179,7 +195,6 @@ def test_set_microstep_mode_256(lib, device_id):
     # Print command return status. It will be 0 if all is OK
     print("Write command result: " + repr(result))
 
-
 # variable 'lib' points to a loaded library
 # note that ximc uses stdcall on win
 print("Library loaded")
@@ -219,11 +234,13 @@ for dev_ind in range(0, dev_count):
 
 flag_virtual = 0
 
-open_name = None
+open_nameX = None
+open_nameY = None
 if len(sys.argv) > 1:
-    open_name = sys.argv[1]
+    open_nameX = sys.argv[1]
 elif dev_count > 0:
-    open_name = lib.get_device_name(devenum, 0)
+    open_nameX = lib.get_device_name(devenum, 0)
+    open_nameY = lib.get_device_name(devenum, 1)
 elif sys.version_info >= (3, 0):
     # use URI for virtual device when there is new urllib python3 API
     tempdir = tempfile.gettempdir() + "/testdevice.bin"
@@ -233,35 +250,62 @@ elif sys.version_info >= (3, 0):
     uri = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme="file", \
                                                            netloc=None, path=tempdir, params=None, query=None,
                                                            fragment=None))
-    open_name = re.sub(r'^file', 'xi-emu', uri).encode()
+    open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
     flag_virtual = 1
     print("The real controller is not found or busy with another app.")
     print("The virtual controller is opened to check the operation of the library.")
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
-if not open_name:
+if not open_nameX:
     exit(1)
 
-if type(open_name) is str:
-    open_name = open_name.encode()
+if type(open_nameX) is str:
+    open_nameX = open_nameX.encode()
 
-print("\nOpen device " + repr(open_name))
-device_id = lib.open_device(open_name)
+print("\nOpen device " + repr(open_nameX))
+device_id = lib.open_device(open_nameX)
 print("Device id: " + repr(device_id))
 
-test_info(lib, device_id) # call once, before loop
-test_status(lib, device_id) # call once, before loop
-test_set_microstep_mode_256(lib, device_id)
+print("\nOpen device " + repr(open_nameY))
+device_id2 = lib.open_device(open_nameY)
+print("Device id: " + repr(device_id2))
+
+#test_info(lib, device_id) # call once, before loop
+#test_status(lib, device_id) # call once, before loop
+#test_set_microstep_mode_256(lib, device_id)
 #current_speed = test_get_speed(lib, device_id)
 
-startpos, ustartpos = test_get_position(lib, device_id)
+startposX, ustartposX = test_get_position(lib, device_id)
+startposY, ustartposY = test_get_position(lib, device_id2)
 
 #current_speed = test_get_speed(lib, device_id)
 
 #test_set_speed(lib, device_id, current_speed * 2)
 
 
-#test_move(lib, device_id, startpos+200, ustartpos)
+test_move(lib, device_id2, startposY+100, ustartposY)
+
+time.sleep(1)
+
+while camera.IsGrabbing():
+    grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+
+    if grabResult.GrabSucceeded():
+        # Access the image data
+        image = converter.Convert(grabResult)
+        img = image.GetArray()
+        cv2.namedWindow('title', cv2.WINDOW_NORMAL)
+        cv2.imshow('title', img)
+        #cv2.imwrite('img/moved100steps_5.png', img)
+        k = cv2.waitKey(1)
+        if k == 27:
+            break
+    grabResult.Release()
+
+# Releasing the resource
+camera.StopGrabbing()
+
+cv2.destroyAllWindows()
 
 #test_wait_for_stop(lib, device_id, 100)
 

@@ -25,7 +25,7 @@ while camera.IsGrabbing():
         img = image.GetArray()
         cv2.namedWindow('title', cv2.WINDOW_NORMAL)
         cv2.imshow('title', img)
-        cv2.imwrite('img/lighttest/testlight_white_6.png', img)
+        #cv2.imwrite('img/lighttest/testlight_white_6.png', img)
         k = cv2.waitKey(1)
         if k == 27:
             break

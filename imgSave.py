@@ -2,7 +2,7 @@ from pypylon import pylon
 import platform
 import numpy
 
-num_img_to_save = 5
+num_img_to_save = 1
 img = pylon.PylonImage()
 tlf = pylon.TlFactory.GetInstance()
 
@@ -23,7 +23,7 @@ for i in range(num_img_to_save):
             quality = 90 - i * 10
             ipo.SetQuality(quality)
 
-            filename = "saved_pypylon_img_%d.jpeg" % quality
+            filename = "img/saved_pypylon_img_%d.jpeg" % quality
             img.Save(pylon.ImageFileFormat_Jpeg, filename, ipo)
         else:
             filename = "saved_pypylon_img_%d.png" % i

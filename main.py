@@ -11,6 +11,7 @@ import os
 import sys
 import platform
 import tempfile
+import matplotlib.pyplot as plt
 import re
 import skimage.feature
 
@@ -78,19 +79,22 @@ except OSError as err:
             "that the architecture of the system and the interpreter is the same")
     exit()
 
+
 def move(lib, device_id, distance, udistance):
     print("\nGoing to {0} steps, {1} microsteps".format(distance, udistance))
     result = lib.command_move(device_id, distance, udistance)
-    print("Result: " + repr(result))
+    # print("Result: " + repr(result))
+
 
 def get_position(lib, device_id):
     print("\nRead position")
     x_pos = get_position_t()
     result = lib.get_position(device_id, byref(x_pos))
-    print("Result: " + repr(result))
+    # print("Result: " + repr(result))
     if result == Result.Ok:
         print("Position: {0} steps, {1} microsteps".format(x_pos.Position, x_pos.uPosition))
     return x_pos.Position, x_pos.uPosition
+
 
 print("Library loaded")
 
@@ -102,7 +106,9 @@ print("Library version: " + sbuf.raw.decode().rstrip("\0"))
 # wish to use network-attached controllers. Accepts both absolute and relative paths, relative paths are resolved
 # relative to the process working directory. If you do not need network devices then "set_bindy_key" is optional.
 # In Python make sure to pass byte-array object to this function (b"string literal").
-result = lib.set_bindy_key(os.path.join(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc", "win32", "keyfile.sqlite").encode("utf-8"))
+result = lib.set_bindy_key(
+    os.path.join(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc", "win32",
+                 "keyfile.sqlite").encode("utf-8"))
 if result != Result.Ok:
     lib.set_bindy_key("keyfile.sqlite".encode("utf-8"))  # Search for the key file in the current directory.
 
@@ -143,7 +149,7 @@ elif sys.version_info >= (3, 0):
     uri = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme="file", \
                                                            netloc=None, path=tempdir, params=None, query=None,
                                                            fragment=None))
-    #open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
+    # open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
     flag_virtual = 1
     print("The real controller is not found or busy with another app.")
     print("The virtual controller is opened to check the operation of the library.")
@@ -173,29 +179,41 @@ if flag_virtual == 1:
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
 startPosX = -1433
-ustartPosX = -242
+uStartPosX = -242
 startPosY = 4490
-ustartPosY = 73
+uStartPosY = 73
 finishPosX = 24835
-ufinishPosX = 165
+uFinishPosX = 165
 finishPosY = 4490
-ufinishPosY = 73
+uFinishPosY = 73
 
 currentPosX, currentUPosX = get_position(lib, device_id1)
 currentPosY, currentUPosY = get_position(lib, device_id2)
 
-xDif = (startPosX + ustartPosX) - (currentPosX + currentUPosX)
-yDif = (startPosY + ustartPosY) - (currentPosY + currentUPosY)
+print(f"Current position: {currentPosX}, {currentPosY}")
+
+xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
+yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
 
 move(lib, device_id1, currentPosX + xDif, currentUPosX)
 move(lib, device_id2, currentPosY + yDif, currentUPosY)
 
-while((currentPosX + currentUPosX) < (finishPosX + ufinishPosX)):
+currentPosX, currentUPosX = get_position(lib, device_id1)
+currentPosY, currentUPosY = get_position(lib, device_id2)
+
+imgCount = 1
+frameCount = 1
+while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
+    print(currentPosX + currentUPosX)
+    print(finishPosX + uFinishPosX)
     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
     if grabResult.GrabSucceeded():
         image = converter.Convert(grabResult)
         img = image.GetArray()
     grabResult.Release()
+    camera.StopGrabbing()
+    cv.namedWindow('live image', cv.WINDOW_NORMAL)
+    cv.imshow('live image', img)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
     # noise removal
@@ -210,29 +228,100 @@ while((currentPosX + currentUPosX) < (finishPosX + ufinishPosX)):
     sure_fg = np.uint8(sure_fg)
     unknown = cv.subtract(sure_bg, sure_fg)
     blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
-    #sort by first column
+    # sort by first column
     blobs = blobs[blobs[:, 0].argsort()]
-    #blob coordinates to step instructions
-    xMoveAggregator = 0
-    yMoveAggregator = 0
+    blobs = blobs[:, :-1]
+    # blob coordinates to step instructions
+    distance = 2048
+    nextToCenterBlob = []
+    blobSequence = []
     for blob in blobs:
-        moveXinPX = blob[0] - 1024
-        moveYinPX = blob[1] - 1024
-        xPxToSteps = moveXinPX * 0.1925
-        yPxToSteps = moveYinPX * 0.1925
-        xMoveAggregator += xPxToSteps
-        yMoveAggregator += yPxToSteps
+        blob[0] = blob[0] - 1024
+        blob[1] = blob[1] - 1024
+        blobR = blob[0]
+        blob[0] = blob[1]
+        blob[1] = blobR
 
-# images = np.ndarray
-#
+    print(blobs)
+
+    plt.imshow(img)
+    plt.plot(1024, 1024, "og", markersize=5)
+    plt.scatter(blobs[:, 0], blobs[:, 1], markers="x", color="red", s=50)
+    plt.savefig("img/test_2_13-04-22/plt{0}.jpeg".format(frameCount), dpi=300)
+
+    # for blob in blobs:
+    #     distanceXYtoCenter = blob[0] + blob[1]
+    #     if distanceXYtoCenter < distance:
+    #         distance = distanceXYtoCenter
+    #         nextToCenterBlob = [blob[0], blob[1]]
+    # blobSequence.append(nextToCenterBlob)
+    # blobs.delete(nextToCenterBlob)
+    #
+    # currentBlob = nextToCenterBlob
+    # minimalDistance = 2048
+    # for blob in blobs:
+    #     xDistance = abs((currentBlob[0] + 1024) - (blob[0] + 1024))
+    #     yDistance = abs((currentBlob[1] + 1024) - (blob[1] + 1024))
+    #     distance = np.sqrt((np.power(xDistance, 2) + (np.power(yDistance, 2))))
+    #     if distance < minimalDistance:
+    #         minimalDistance = distance
+    #         currentBlob = blob
+    #         blobs.delete(blob)
+    for blob in blobs:
+        xPxToSteps = round(blob[0] * 0.1925, 0)
+        yPxToSteps = round(blob[1] * 0.1925, 0)
+        xPxToSteps = int(xPxToSteps)
+        yPxToSteps = int(yPxToSteps)
+        currentPosX, currentUPosX = get_position(lib, device_id1)
+        currentPosY, currentUPosY = get_position(lib, device_id2)
+        move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX)
+        move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY)
+        print("\ngoing to {0}x, {1}y\n".format(blob[0], blob[1]))
+        time.sleep(2)
+        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        converter = pylon.ImageFormatConverter()
+        converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+        converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+        image2 = converter.Convert(grabResult2)
+        img2 = image2.GetArray()
+        grabResult2.Release()
+        camera.StopGrabbing()
+        filename = "img/13-04-22/saved_pypylon_img_{0}_frame{1}_found{2}.jpeg".format(imgCount, frameCount, len(blobs))
+        print(filename)
+        #img2 = cv.circle(img2, (blob[0] + 1024, blob[1] + 1024), radius=0, color=(0, 0, 255), thickness=-1)
+        cv.imwrite(filename, img2)
+        currentPosX, currentUPosX = get_position(lib, device_id1)
+        currentPosY, currentUPosY = get_position(lib, device_id2)
+        move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
+        move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
+        time.sleep(2)
+        imgCount += 1
+
+    currentPosX, currentUPosX = get_position(lib, device_id1)
+    currentPosY, currentUPosY = get_position(lib, device_id2)
+
+    moveToNextFrame = int(round(2048 * 0.1925))
+    move(lib, device_id1, currentPosX + moveToNextFrame, currentUPosX)
+    print("\n-------\nframe changed\n-------\n")
+    frameCount += 1
+    time.sleep(2)
+
+    camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+    camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+    converter = pylon.ImageFormatConverter()
+    converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+    converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
 # try:
 #     while camera.IsGrabbing():
 #         grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 #         if grabResult.GrabSucceeded():
 #             # Access the image data
 #             image = converter.Convert(grabResult)
-#             startpos, ustartpos = get_position(lib, device_id1)
-#             move(lib, device_id1, startpos + 1000, ustartpos + 1000)
+#             startpos, uStartPos = get_position(lib, device_id1)
+#             move(lib, device_id1, startpos + 1000, uStartPos + 1000)
 #             time.sleep(5)
 #             img = image.GetArray()
 #             imgG = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -245,19 +334,10 @@ while((currentPosX + currentUPosX) < (finishPosX + ufinishPosX)):
 #         grabResult.Release()
 # except KeyboardInterrupt:
 #     raise Exception("stop")
-#
-#
-# panorama = np.ndarray(images.shape[0] * 2048, images.shape[1])
-# for image in images:
-#     for i in range(2048):
-#         np.append(panorama[i], image[i])
-# cv2.namedWindow('panorama', cv2.WINDOW_NORMAL)
-# cv2.imshow('panorama', panorama)
 # # Releasing the resource
 #
-camera.StopGrabbing()
 #
-# cv2.destroyAllWindows()
+cv.destroyAllWindows()
 
 print("\nClosing")
 

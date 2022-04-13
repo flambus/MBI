@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import skimage.feature
 #%matplotlib inline
 
-img = cv.imread('img/water_coins.jpg')
+img = cv.imread('img/13-04-22/saved_pypylon_img_33.jpeg')
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 # noise removal
@@ -26,6 +26,7 @@ print(height, width)
 blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
 
 blobs = blobs[blobs[:, 0].argsort()]
+blobs = blobs[:, :-1]
 #cv2.imshow('image', image)
 print(blobs)
 print(type(blobs))

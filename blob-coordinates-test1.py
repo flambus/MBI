@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import skimage.feature
 #%matplotlib inline
 
-img = cv.imread('img/13-04-22/saved_pypylon_img_33.jpeg')
+img = cv.imread('img/13-04-22/saved_pypylon_img_33_frame4_found5.jpeg')
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 # noise removal
@@ -24,6 +24,13 @@ cv.imshow("sure_fg", sure_fg)
 height, width = img.shape[:2]
 print(height, width)
 blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
+
+for blob in blobs:
+    #blob[0] = blob[0] - 1024
+    #blob[1] = blob[1] - 1024
+    blobR = blob[0]
+    blob[0] = blob[1]
+    blob[1] = blobR
 
 blobs = blobs[blobs[:, 0].argsort()]
 blobs = blobs[:, :-1]

@@ -228,9 +228,6 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     sure_fg = np.uint8(sure_fg)
     unknown = cv.subtract(sure_bg, sure_fg)
     blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
-    # sort by first column
-    blobs = blobs[blobs[:, 0].argsort()]
-    blobs = blobs[:, :-1]
     # blob coordinates to step instructions
     distance = 2048
     nextToCenterBlob = []
@@ -242,12 +239,15 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
         blob[0] = blob[1]
         blob[1] = blobR
 
+    # sort by first column
+    blobs = blobs[blobs[:, 0].argsort()]
+    blobs = blobs[:, :-1]
     print(blobs)
 
-    plt.imshow(img)
-    plt.plot(1024, 1024, "og", markersize=5)
-    plt.scatter(blobs[:, 0], blobs[:, 1], markers="x", color="red", s=50)
-    plt.savefig("img/test_2_13-04-22/plt{0}.jpeg".format(frameCount), dpi=300)
+    # plt.imshow(img)
+    # plt.plot(1024, 1024, "og", markersize=5)
+    # plt.scatter(blobs[:, 0], blobs[:, 1], markers="x", color="red", s=50)
+    # plt.savefig("img/test_2_13-04-22/plt{0}.jpeg".format(frameCount), dpi=300)
 
     # for blob in blobs:
     #     distanceXYtoCenter = blob[0] + blob[1]
@@ -267,6 +267,7 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     #         minimalDistance = distance
     #         currentBlob = blob
     #         blobs.delete(blob)
+
     for blob in blobs:
         xPxToSteps = round(blob[0] * 0.1925, 0)
         yPxToSteps = round(blob[1] * 0.1925, 0)
@@ -290,13 +291,13 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
         camera.StopGrabbing()
         filename = "img/13-04-22/saved_pypylon_img_{0}_frame{1}_found{2}.jpeg".format(imgCount, frameCount, len(blobs))
         print(filename)
-        #img2 = cv.circle(img2, (blob[0] + 1024, blob[1] + 1024), radius=0, color=(0, 0, 255), thickness=-1)
+        # img2 = cv.circle(img2, (blob[0] + 1024, blob[1] + 1024), radius=0, color=(0, 0, 255), thickness=-1)
         cv.imwrite(filename, img2)
-        currentPosX, currentUPosX = get_position(lib, device_id1)
-        currentPosY, currentUPosY = get_position(lib, device_id2)
-        move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
-        move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
-        time.sleep(2)
+        # currentPosX, currentUPosX = get_position(lib, device_id1)
+        # currentPosY, currentUPosY = get_position(lib, device_id2)
+        # move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
+        # move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
+        # time.sleep(2)
         imgCount += 1
 
     currentPosX, currentUPosX = get_position(lib, device_id1)

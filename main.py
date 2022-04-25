@@ -95,6 +95,61 @@ def get_position(lib, device_id):
         print("Position: {0} steps, {1} microsteps".format(x_pos.Position, x_pos.uPosition))
     return x_pos.Position, x_pos.uPosition
 
+def centroiding(M, th, mn, mx, r):
+    # M = self.cam_im_proc
+    # th = int(self.gui_centroiding_threshold_spinner.value())
+    # r = int(self.gui_centroiding_radius_spinner.value())
+    cm = M.copy()
+
+    bordersize = r
+    border = cv.copyMakeBorder(
+        cm,
+        top=bordersize,
+        bottom=bordersize,
+        left=bordersize,
+        right=bordersize,
+        borderType=cv.BORDER_CONSTANT,
+        value=[255, 255, 255]
+    )
+    (Nx, Ny) = np.shape(cm)
+    print(Ny, Nx)
+    # border = cv.resize(border, (400, 400))
+    # cv.imshow("border", border)
+    # cv.waitKey(0)
+
+    # XX,YY=np.meshgrid(range(0,Nx),range(0,Ny))
+    XX, YY = np.meshgrid(range(0, Ny), range(0, Nx))
+    # cm[0:r, :] = 0
+    # cm[:, 0:r] = 0
+    # cm[Nx - r:Nx, :] = 0
+    # cm[:, Ny - r:Ny] = 0
+    rM = np.zeros((Nx, Ny))
+    ind = np.flatnonzero(M > th)
+    print(ind)
+    (x, y) = np.unravel_index(ind, np.shape(cm))
+    # print (np.shape(ind))
+    Xarr = []
+    Yarr = []
+    for i in range(0, len(ind)):
+        if (cm[x[i], y[i]] > 0):
+            A = cm[x[i] - r:x[i] + r, y[i] - r:y[i] + r]
+            sA = np.sum(A)
+            if (sA > mn and sA < mx):
+                cx = int(np.sum(XX[x[i] - r:x[i] + r,
+                                y[i] - r:y[i] + r] * A) / sA + 0.5)
+                cy = int(np.sum(YY[x[i] - r:x[i] + r,
+                                y[i] - r:y[i] + r] * A) / sA + 0.5)
+                # rM[cy,cx] = 1 # maybe good to set to sA?
+                # if self.gui_centroiding_sum_cb.isChecked():
+                Xarr.append(cx)
+                Yarr.append(cy)
+                rM[cy, cx] = sA  # maybe good to set to sA?
+            # else:
+            # rM[cy, cx] = 1
+            cm[x[i] - r:x[i] + r, y[i] - r:y[i] + r] = 0
+    return np.array(Xarr), np.array(Yarr)
+    # self.cam_im_centr = rM
+
 
 print("Library loaded")
 
@@ -212,37 +267,49 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
         img = image.GetArray()
     grabResult.Release()
     camera.StopGrabbing()
-    cv.namedWindow('live image', cv.WINDOW_NORMAL)
-    cv.imshow('live image', img)
+    #cv.namedWindow('live image', cv.WINDOW_NORMAL)
+    #cv.imshow('live image', img)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
-    # noise removal
-    kernel = np.ones((3, 3), np.uint8)
-    opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel, iterations=2)
-    # sure background area
-    sure_bg = cv.dilate(opening, kernel, iterations=3)
-    # Finding sure foreground area
-    dist_transform = cv.distanceTransform(opening, cv.DIST_L2, 5)
-    ret, sure_fg = cv.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
-    # Finding unknown region
-    sure_fg = np.uint8(sure_fg)
-    unknown = cv.subtract(sure_bg, sure_fg)
-    blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
+    gray = 255 - gray
+    Xarr, Yarr = centroiding(gray, 80, 500000, 10000000, 80)
+    print("Xarr:\n")
+    print(Xarr)
+    print("\nYarr:\n")
+    print(Yarr)
+    blobs = []
+    for i in range(len(Xarr)):
+        blob = [Xarr[i], Yarr[i]]
+        blobs.append(blob)
+    blobs = np.array(blobs)
+    # ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
+    # # noise removal
+    # kernel = np.ones((3, 3), np.uint8)
+    # opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel, iterations=2)
+    # # sure background area
+    # sure_bg = cv.dilate(opening, kernel, iterations=3)
+    # # Finding sure foreground area
+    # dist_transform = cv.distanceTransform(opening, cv.DIST_L2, 5)
+    # ret, sure_fg = cv.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+    # # Finding unknown region
+    # sure_fg = np.uint8(sure_fg)
+    # unknown = cv.subtract(sure_bg, sure_fg)
+    # blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
     # blob coordinates to step instructions
     distance = 2048
-    nextToCenterBlob = []
-    blobSequence = []
-    for blob in blobs:
-        blob[0] = blob[0] - 1024
-        blob[1] = blob[1] - 1024
-        blobR = blob[0]
-        blob[0] = blob[1]
-        blob[1] = blobR
+    #nextToCenterBlob = []
+    #blobSequence = []
+    # for blob in blobs:
+    #     blob[0] = blob[0] - 1024
+    #     blob[1] = blob[1] - 1024
+    #     blobR = blob[0]
+    #     blob[0] = blob[1]
+    #     blob[1] = blobR
 
     # sort by first column
-    blobs = blobs[blobs[:, 0].argsort()]
-    blobs = blobs[:, :-1]
-    print(blobs)
+    if blobs.size != 0:
+        blobs = blobs[blobs[:, 0].argsort()]
+        #blobs = blobs[:, :-1]
+        print("Blobs: ", blobs)
 
     # plt.imshow(img)
     # plt.plot(1024, 1024, "og", markersize=5)
@@ -289,15 +356,15 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
         img2 = image2.GetArray()
         grabResult2.Release()
         camera.StopGrabbing()
-        filename = "img/13-04-22/saved_pypylon_img_{0}_frame{1}_found{2}.jpeg".format(imgCount, frameCount, len(blobs))
+        filename = "img/25-04-22/saved_pypylon_img_{0}_frame{1}_found{2}.jpeg".format(imgCount, frameCount, len(blobs))
         print(filename)
         # img2 = cv.circle(img2, (blob[0] + 1024, blob[1] + 1024), radius=0, color=(0, 0, 255), thickness=-1)
         cv.imwrite(filename, img2)
-        # currentPosX, currentUPosX = get_position(lib, device_id1)
-        # currentPosY, currentUPosY = get_position(lib, device_id2)
-        # move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
-        # move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
-        # time.sleep(2)
+        currentPosX, currentUPosX = get_position(lib, device_id1)
+        currentPosY, currentUPosY = get_position(lib, device_id2)
+        move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
+        move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
+        time.sleep(2)
         imgCount += 1
 
     currentPosX, currentUPosX = get_position(lib, device_id1)

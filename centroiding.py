@@ -57,7 +57,7 @@ def centroiding(M, th, mn, mx, r):
     return rM, np.array(Xarr), np.array(Yarr)
     #self.cam_im_centr = rM
 
-M = cv.imread('img/Image__2022-04-25__16-10-42.bmp')
+M = cv.imread('img/Image__2022-04-29__14-09-37.jpg')
 gray = cv.cvtColor(M, cv.COLOR_BGR2GRAY)
 M = 255-gray
 

@@ -23,6 +23,8 @@ while camera.IsGrabbing():
         # Access the image data
         image = converter.Convert(grabResult)
         img = image.GetArray()
+        img = cv2.circle(img, (1024, 1024), radius=10, color=(50, 205, 50), thickness=-1)
+        img = cv2.resize(img, (800, 800))
         cv2.namedWindow('title', cv2.WINDOW_NORMAL)
         cv2.imshow('title', img)
         #cv2.imwrite('img/lighttest/testlight_white_6.png', img)

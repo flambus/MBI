@@ -11,9 +11,17 @@ import os
 import sys
 import platform
 import tempfile
+import pyfirmata
+from datetime import datetime
+import pathlib
 import matplotlib.pyplot as plt
 import re
 import skimage.feature
+
+port = 'COM7'
+board = pyfirmata.Arduino(port)
+hold = 5
+pin = 4
 
 # conecting to the first available camera
 camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
@@ -233,6 +241,7 @@ if flag_virtual == 1:
     print("The virtual controller is opened to check the operation of the library.")
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
+# initialize start and finish positions
 startPosX = -1433
 uStartPosX = -242
 startPosY = 4490
@@ -242,9 +251,9 @@ uFinishPosX = 165
 finishPosY = 4490
 uFinishPosY = 73
 
+# get current position and move to start
 currentPosX, currentUPosX = get_position(lib, device_id1)
 currentPosY, currentUPosY = get_position(lib, device_id2)
-
 print(f"Current position: {currentPosX}, {currentPosY}")
 
 xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
@@ -256,19 +265,37 @@ move(lib, device_id2, currentPosY + yDif, currentUPosY)
 currentPosX, currentUPosX = get_position(lib, device_id1)
 currentPosY, currentUPosY = get_position(lib, device_id2)
 
-imgCount = 1
 frameCount = 1
+
+# create a directory to save live images
+now = datetime.now()
+year = now.strftime("%Y")
+month = now.strftime("%m")
+day = now.strftime("%d")
+directoryName = "{0}-{1}-{2}".format(year, month, day)
+path = "C:/Users/lab/Desktop/LIA/MBI/img/" + directoryName
+directory = pathlib.Path(path)
+if directory.exists():
+    for file_name in os.listdir(path):
+        file = path + "/" + file_name
+        os.remove(file)
+else:
+    os.mkdir(path)
+
+# repeat whole process while end-position is not reached
 while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     print(currentPosX + currentUPosX)
     print(finishPosX + uFinishPosX)
+
+    # get current live image
     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
     if grabResult.GrabSucceeded():
         image = converter.Convert(grabResult)
         img = image.GetArray()
     grabResult.Release()
     camera.StopGrabbing()
-    #cv.namedWindow('live image', cv.WINDOW_NORMAL)
-    #cv.imshow('live image', img)
+
+    # convert image to gray and run the centroiding algorithm
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     gray = 255 - gray
     Xarr, Yarr = centroiding(gray, 80, 500000, 10000000, 80)
@@ -276,39 +303,29 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     print(Xarr)
     print("\nYarr:\n")
     print(Yarr)
+
+    # create blob x/y-datapairs from Xarr and Yarr
     blobs = []
     for i in range(len(Xarr)):
         blob = [Xarr[i], Yarr[i]]
         blobs.append(blob)
     blobs = np.array(blobs)
-    # ret, thresh = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
-    # # noise removal
-    # kernel = np.ones((3, 3), np.uint8)
-    # opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel, iterations=2)
-    # # sure background area
-    # sure_bg = cv.dilate(opening, kernel, iterations=3)
-    # # Finding sure foreground area
-    # dist_transform = cv.distanceTransform(opening, cv.DIST_L2, 5)
-    # ret, sure_fg = cv.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
-    # # Finding unknown region
-    # sure_fg = np.uint8(sure_fg)
-    # unknown = cv.subtract(sure_bg, sure_fg)
-    # blobs = skimage.feature.blob_log(sure_fg, min_sigma=4, max_sigma=4, num_sigma=1, threshold=0.42)
-    # blob coordinates to step instructions
-    distance = 2048
-    #nextToCenterBlob = []
-    #blobSequence = []
-    # for blob in blobs:
-    #     blob[0] = blob[0] - 1024
-    #     blob[1] = blob[1] - 1024
-    #     blobR = blob[0]
-    #     blob[0] = blob[1]
-    #     blob[1] = blobR
 
-    # sort by first column
+    # create an image with all blobs marked (for each frame)
+    for blob in blobs:
+        cv.circle(img, (blob[0], blob[1]), radius=10, color=(0, 0, 255), thickness=-1)
+    filename = "img/{0}/frame{1}.jpeg".format(directoryName, frameCount)
+    cv.imwrite(filename, img)
+
+    # convert x/y-values to be coordinates relative to image center (center = (x0, y0))
+    for blob in blobs:
+        blob[0] = blob[0] - 1024
+        blob[1] = blob[1] - 1024
+
+    # sort blobs by first column (x-axis)
     if blobs.size != 0:
         blobs = blobs[blobs[:, 0].argsort()]
-        #blobs = blobs[:, :-1]
+        # blobs = blobs[:, :-1]
         print("Blobs: ", blobs)
 
     # plt.imshow(img)
@@ -316,95 +333,69 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     # plt.scatter(blobs[:, 0], blobs[:, 1], markers="x", color="red", s=50)
     # plt.savefig("img/test_2_13-04-22/plt{0}.jpeg".format(frameCount), dpi=300)
 
-    # for blob in blobs:
-    #     distanceXYtoCenter = blob[0] + blob[1]
-    #     if distanceXYtoCenter < distance:
-    #         distance = distanceXYtoCenter
-    #         nextToCenterBlob = [blob[0], blob[1]]
-    # blobSequence.append(nextToCenterBlob)
-    # blobs.delete(nextToCenterBlob)
-    #
-    # currentBlob = nextToCenterBlob
-    # minimalDistance = 2048
-    # for blob in blobs:
-    #     xDistance = abs((currentBlob[0] + 1024) - (blob[0] + 1024))
-    #     yDistance = abs((currentBlob[1] + 1024) - (blob[1] + 1024))
-    #     distance = np.sqrt((np.power(xDistance, 2) + (np.power(yDistance, 2))))
-    #     if distance < minimalDistance:
-    #         minimalDistance = distance
-    #         currentBlob = blob
-    #         blobs.delete(blob)
-
+    # move each blob from the current image to center and illuminate it for two minutes
+    imgCount = 1
     for blob in blobs:
-        xPxToSteps = round(blob[0] * 0.1925, 0)
-        yPxToSteps = round(blob[1] * 0.1925, 0)
-        xPxToSteps = int(xPxToSteps)
-        yPxToSteps = int(yPxToSteps)
+        # compute needed steps to reach egg (pixels -> stage steps)
+        xPxToSteps = int(round((blob[0] * 0.1925), 0))
+        yPxToSteps = int(round((blob[1] * 0.1925), 0))
+
+        # get current position and move to required position
         currentPosX, currentUPosX = get_position(lib, device_id1)
         currentPosY, currentUPosY = get_position(lib, device_id2)
         move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX)
         move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY)
         print("\ngoing to {0}x, {1}y\n".format(blob[0], blob[1]))
         time.sleep(2)
-        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
-        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-        converter = pylon.ImageFormatConverter()
+
+        # save current live image
+        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())     # initialize camera
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)                            # start getting live data
+        converter = pylon.ImageFormatConverter()                                            # initialize image converter
         converter.OutputPixelFormat = pylon.PixelType_BGR8packed
         converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-        image2 = converter.Convert(grabResult2)
-        img2 = image2.GetArray()
-        grabResult2.Release()
-        camera.StopGrabbing()
-        filename = "img/25-04-22/saved_pypylon_img_{0}_frame{1}_found{2}.jpeg".format(imgCount, frameCount, len(blobs))
+        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)     # get one image
+        image2 = converter.Convert(grabResult2)                                             # convert image
+        img2 = image2.GetArray()                                                            # turn image into an array
+        grabResult2.Release()                                                               # release current image
+        camera.StopGrabbing()                                                               # stop getting images
+        filename = "img/{0}/frame{1}_img{2}_from_{3}.jpeg".format(directoryName, frameCount, imgCount, len(blobs))
         print(filename)
-        # img2 = cv.circle(img2, (blob[0] + 1024, blob[1] + 1024), radius=0, color=(0, 0, 255), thickness=-1)
-        cv.imwrite(filename, img2)
+        #img2 = cv.circle(img2, (1024, 1024), radius=10, color=(50, 205, 50), thickness=-1)   # draw circle in image center (to test precision)
+        cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+        cv.line(img2, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+        cv.imwrite(filename, img2)                                                          # save new image
+
+        # open and close gate
+        board.digital[pin].write(1)
+        time.sleep(3)
+        board.digital[pin].write(0)
+        time.sleep(3)
+
+        # move back to center
         currentPosX, currentUPosX = get_position(lib, device_id1)
         currentPosY, currentUPosY = get_position(lib, device_id2)
         move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
         move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
-        time.sleep(2)
         imgCount += 1
+        time.sleep(2)
 
+    # move one frame from center
     currentPosX, currentUPosX = get_position(lib, device_id1)
     currentPosY, currentUPosY = get_position(lib, device_id2)
-
     moveToNextFrame = int(round(2048 * 0.1925))
     move(lib, device_id1, currentPosX + moveToNextFrame, currentUPosX)
     print("\n-------\nframe changed\n-------\n")
     frameCount += 1
     time.sleep(2)
 
+    # initialize camera for next frame
     camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
     camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
     converter = pylon.ImageFormatConverter()
     converter.OutputPixelFormat = pylon.PixelType_BGR8packed
     converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
-# try:
-#     while camera.IsGrabbing():
-#         grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-#         if grabResult.GrabSucceeded():
-#             # Access the image data
-#             image = converter.Convert(grabResult)
-#             startpos, uStartPos = get_position(lib, device_id1)
-#             move(lib, device_id1, startpos + 1000, uStartPos + 1000)
-#             time.sleep(5)
-#             img = image.GetArray()
-#             imgG = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#             np.append(images, imgG)
-#             cv2.namedWindow('title', cv2.WINDOW_NORMAL)
-#             cv2.imshow('title', imgG)
-#             k = cv2.waitKey(1)
-#             if k == 27:
-#                 break
-#         grabResult.Release()
-# except KeyboardInterrupt:
-#     raise Exception("stop")
-# # Releasing the resource
-#
-#
 cv.destroyAllWindows()
 
 print("\nClosing")

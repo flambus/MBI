@@ -270,37 +270,23 @@ print("\nOpen device " + repr(open_nameY))
 device_id2 = lib.open_device(open_nameY)
 print("Device id: " + repr(device_id2))
 
-#test_info(lib, device_id) # call once, before loop
-#test_status(lib, device_id) # call once, before loop
-#test_set_microstep_mode_256(lib, device_id)
-#current_speed = test_get_speed(lib, device_id)
+steps = 5
+stepValue = 80
+for i in range(steps):
+    grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+    image = converter.Convert(grabResult)
+    img = image.GetArray()
+    cv2.namedWindow('title', cv2.WINDOW_NORMAL)
+    cv2.imshow('title', img)
+    cv2.imwrite('img/29-04_moved100steps{0}.png'.format(i), img)
+
+    startposY, ustartposY = test_get_position(lib, device_id2)
+    test_move(lib, device_id2, startposY + stepValue, ustartposY)
+    time.sleep(2)
+    grabResult.Release()
 
 startposX, ustartposX = test_get_position(lib, device_id)
-startposY, ustartposY = test_get_position(lib, device_id2)
-
-#current_speed = test_get_speed(lib, device_id)
-
-#test_set_speed(lib, device_id, current_speed * 2)
-
-
-test_move(lib, device_id2, startposY+100, ustartposY)
-
-time.sleep(1)
-
-while camera.IsGrabbing():
-    grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-
-    if grabResult.GrabSucceeded():
-        # Access the image data
-        image = converter.Convert(grabResult)
-        img = image.GetArray()
-        cv2.namedWindow('title', cv2.WINDOW_NORMAL)
-        cv2.imshow('title', img)
-        #cv2.imwrite('img/moved100steps_5.png', img)
-        k = cv2.waitKey(1)
-        if k == 27:
-            break
-    grabResult.Release()
+test_move(lib, device_id2, startposY - (stepValue * steps), ustartposY)
 
 # Releasing the resource
 camera.StopGrabbing()

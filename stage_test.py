@@ -278,15 +278,49 @@ for i in range(steps):
     img = image.GetArray()
     cv2.namedWindow('title', cv2.WINDOW_NORMAL)
     cv2.imshow('title', img)
-    cv2.imwrite('img/29-04_moved100steps{0}.png'.format(i), img)
+    cv2.imwrite('img/calibration/22-06_moved100steps{0}.png'.format(i), img)
 
-    startposY, ustartposY = test_get_position(lib, device_id2)
-    test_move(lib, device_id2, startposY + stepValue, ustartposY)
+    startposX, ustartposX = test_get_position(lib, device_id)
+    test_move(lib, device_id, startposX + stepValue, ustartposX)
     time.sleep(2)
     grabResult.Release()
 
 startposX, ustartposX = test_get_position(lib, device_id)
-test_move(lib, device_id2, startposY - (stepValue * steps), ustartposY)
+test_move(lib, device_id, startposX - (stepValue * steps), ustartposX)
+startposX, ustartposX = test_get_position(lib, device_id2)
+
+## test step one direction and back
+
+# startposX, ustartposX = test_get_position(lib, device_id)
+# grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+# image = converter.Convert(grabResult)
+# img = image.GetArray()
+# cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+# cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+# cv2.imwrite('img/13-06_startingPosition.png', img)
+# grabResult.Release()
+#
+# test_move(lib, device_id, startposX - 100, ustartposX)
+# time.sleep(2)
+# grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+# image = converter.Convert(grabResult)
+# img = image.GetArray()
+# cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+# cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+# cv2.imwrite('img/13-06_moved100steps.png', img)
+# grabResult.Release()
+#
+# startposX, ustartposX = test_get_position(lib, device_id)
+# test_move(lib, device_id, startposX + 100, ustartposX)
+# time.sleep(2)
+# grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+# image = converter.Convert(grabResult)
+# img = image.GetArray()
+# cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+# cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+# cv2.imwrite('img/13-06_moved100stepsBack.png', img)
+# grabResult.Release()
+
 
 # Releasing the resource
 camera.StopGrabbing()

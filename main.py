@@ -103,46 +103,41 @@ def get_position(lib, device_id):
         print("Position: {0} steps, {1} microsteps".format(x_pos.Position, x_pos.uPosition))
     return x_pos.Position, x_pos.uPosition
 
+
 def centroiding(M, th, mn, mx, r):
     # M = self.cam_im_proc
     # th = int(self.gui_centroiding_threshold_spinner.value())
     # r = int(self.gui_centroiding_radius_spinner.value())
     cm = M.copy()
 
-    bordersize = r
-    border = cv.copyMakeBorder(
-        cm,
-        top=bordersize,
-        bottom=bordersize,
-        left=bordersize,
-        right=bordersize,
-        borderType=cv.BORDER_CONSTANT,
-        value=[255, 255, 255]
-    )
-    (Nx, Ny) = np.shape(cm)
-    print(Ny, Nx)
-    # border = cv.resize(border, (400, 400))
-    # cv.imshow("border", border)
-    # cv.waitKey(0)
+    # copy image into matrix with borders
+    cm_bigger = np.zeros((cm.shape[0] + 100, cm.shape[1] + 100))
+    for k in range(0, cm.shape[0]):
+        for j in range(0, cm.shape[0]):
+            cm_bigger[k + 50][j + 50] = cm[k][j]
+
+    (Nx, Ny) = np.shape(cm_bigger)
 
     # XX,YY=np.meshgrid(range(0,Nx),range(0,Ny))
     XX, YY = np.meshgrid(range(0, Ny), range(0, Nx))
+
     # cm[0:r, :] = 0
     # cm[:, 0:r] = 0
     # cm[Nx - r:Nx, :] = 0
     # cm[:, Ny - r:Ny] = 0
+
     rM = np.zeros((Nx, Ny))
     ind = np.flatnonzero(M > th)
     print(ind)
-    (x, y) = np.unravel_index(ind, np.shape(cm))
+    (x, y) = np.unravel_index(ind, np.shape(cm_bigger))
     # print (np.shape(ind))
     Xarr = []
     Yarr = []
     for i in range(0, len(ind)):
-        if (cm[x[i], y[i]] > 0):
-            A = cm[x[i] - r:x[i] + r, y[i] - r:y[i] + r]
+        if cm_bigger[x[i], y[i]] > 0:
+            A = cm_bigger[x[i] - r:x[i] + r, y[i] - r:y[i] + r]
             sA = np.sum(A)
-            if (sA > mn and sA < mx):
+            if mn < sA < mx:
                 cx = int(np.sum(XX[x[i] - r:x[i] + r,
                                 y[i] - r:y[i] + r] * A) / sA + 0.5)
                 cy = int(np.sum(YY[x[i] - r:x[i] + r,
@@ -154,7 +149,7 @@ def centroiding(M, th, mn, mx, r):
                 rM[cy, cx] = sA  # maybe good to set to sA?
             # else:
             # rM[cy, cx] = 1
-            cm[x[i] - r:x[i] + r, y[i] - r:y[i] + r] = 0
+            cm_bigger[x[i] - r:x[i] + r, y[i] - r:y[i] + r] = 0
     return np.array(Xarr), np.array(Yarr)
     # self.cam_im_centr = rM
 
@@ -209,8 +204,7 @@ elif sys.version_info >= (3, 0):
     if os.altsep:
         tempdir = tempdir.replace(os.sep, os.altsep)
     # urlparse build wrong path if scheme is not file
-    uri = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme="file", \
-                                                           netloc=None, path=tempdir, params=None, query=None,
+    uri = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme="file", netloc=None, path=tempdir, params=None, query=None,
                                                            fragment=None))
     # open_nameX = re.sub(r'^file', 'xi-emu', uri).encode()
     flag_virtual = 1
@@ -242,28 +236,28 @@ if flag_virtual == 1:
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
 # initialize start and finish positions
-startPosX = -1433
-uStartPosX = -242
-startPosY = 4490
-uStartPosY = 73
-finishPosX = 24835
-uFinishPosX = 165
-finishPosY = 4490
-uFinishPosY = 73
+startPosX = 1795
+uStartPosX = 234
+startPosY = 3825
+uStartPosY = 207
+finishPosX = 17247
+uFinishPosX = 28
+finishPosY = 3825
+uFinishPosY = 207
 
 # get current position and move to start
 currentPosX, currentUPosX = get_position(lib, device_id1)
 currentPosY, currentUPosY = get_position(lib, device_id2)
 print(f"Current position: {currentPosX}, {currentPosY}")
 
-xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
-yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
+# xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
+# yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
+#
+# move(lib, device_id1, currentPosX + xDif, currentUPosX)
+# move(lib, device_id2, currentPosY + yDif, currentUPosY)
 
-move(lib, device_id1, currentPosX + xDif, currentUPosX)
-move(lib, device_id2, currentPosY + yDif, currentUPosY)
-
-currentPosX, currentUPosX = get_position(lib, device_id1)
-currentPosY, currentUPosY = get_position(lib, device_id2)
+# currentPosX, currentUPosX = get_position(lib, device_id1)
+# currentPosY, currentUPosY = get_position(lib, device_id2)
 
 frameCount = 1
 
@@ -283,9 +277,9 @@ else:
     os.mkdir(path)
 
 # repeat whole process while end-position is not reached
-while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
-    print(currentPosX + currentUPosX)
-    print(finishPosX + uFinishPosX)
+while currentPosX < finishPosX:
+    print("Current position: ", currentPosX)
+    print("Finish position: ", finishPosX)
 
     # get current live image
     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
@@ -298,23 +292,35 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     # convert image to gray and run the centroiding algorithm
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     gray = 255 - gray
-    Xarr, Yarr = centroiding(gray, 80, 500000, 10000000, 80)
+
+    threshold = 40
+    mn = 300000
+    mx = 1000000
+    r = 100
+
+    # Xarr, Yarr = centroiding(gray, 50, 500000, 1000000, 100)
+    Xarr, Yarr = centroiding(gray, threshold, mn, mx, r)
     print("Xarr:\n")
     print(Xarr)
     print("\nYarr:\n")
     print(Yarr)
 
-    # create blob x/y-datapairs from Xarr and Yarr
+    # create blob x/y-data-pairs from Xarr and Yarr (only from the middle third on y-axis)
     blobs = []
     for i in range(len(Xarr)):
-        blob = [Xarr[i], Yarr[i]]
-        blobs.append(blob)
+        if 2048 > Xarr[i] > 0 and 1365 > Yarr[i] > 683:
+            blob = [Xarr[i], Yarr[i]]
+            blobs.append(blob)
     blobs = np.array(blobs)
 
     # create an image with all blobs marked (for each frame)
     for blob in blobs:
         cv.circle(img, (blob[0], blob[1]), radius=10, color=(0, 0, 255), thickness=-1)
     filename = "img/{0}/frame{1}.jpeg".format(directoryName, frameCount)
+    img = cv.circle(img, (1024, 1024), radius=10, color=(50, 205, 50),
+                    thickness=-1)  # draw circle in image center (to test precision)
+    cv.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+    cv.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
     cv.imwrite(filename, img)
 
     # convert x/y-values to be coordinates relative to image center (center = (x0, y0))
@@ -337,34 +343,37 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
     imgCount = 1
     for blob in blobs:
         # compute needed steps to reach egg (pixels -> stage steps)
-        xPxToSteps = int(round((blob[0] * 0.1925), 0))
-        yPxToSteps = int(round((blob[1] * 0.1925), 0))
+        xPxToSteps = int(round((blob[0] * 0.1925), 3))
+        yPxToSteps = int(round((blob[1] * 0.1925), 3))
 
         # get current position and move to required position
         currentPosX, currentUPosX = get_position(lib, device_id1)
         currentPosY, currentUPosY = get_position(lib, device_id2)
-        move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX)
-        move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY)
+        if blob[0] < 0:
+            move(lib, device_id1, currentPosX + xPxToSteps - 13, currentUPosX)
+            move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY)
+        else:
+            move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX)
+            move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY)
         print("\ngoing to {0}x, {1}y\n".format(blob[0], blob[1]))
         time.sleep(2)
 
         # save current live image
-        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())     # initialize camera
-        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)                            # start getting live data
-        converter = pylon.ImageFormatConverter()                                            # initialize image converter
+        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())  # initialize camera
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)  # start getting live data
+        converter = pylon.ImageFormatConverter()  # initialize image converter
         converter.OutputPixelFormat = pylon.PixelType_BGR8packed
         converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)     # get one image
-        image2 = converter.Convert(grabResult2)                                             # convert image
-        img2 = image2.GetArray()                                                            # turn image into an array
-        grabResult2.Release()                                                               # release current image
-        camera.StopGrabbing()                                                               # stop getting images
+        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)  # get one image
+        image2 = converter.Convert(grabResult2)  # convert image
+        img2 = image2.GetArray()  # turn image into an array
+        grabResult2.Release()  # release current image
+        camera.StopGrabbing()  # stop getting images
         filename = "img/{0}/frame{1}_img{2}_from_{3}.jpeg".format(directoryName, frameCount, imgCount, len(blobs))
         print(filename)
-        #img2 = cv.circle(img2, (1024, 1024), radius=10, color=(50, 205, 50), thickness=-1)   # draw circle in image center (to test precision)
         cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
         cv.line(img2, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-        cv.imwrite(filename, img2)                                                          # save new image
+        cv.imwrite(filename, img2)  # save new image
 
         # open and close gate
         board.digital[pin].write(1)
@@ -375,10 +384,34 @@ while (currentPosX + currentUPosX) < (finishPosX + uFinishPosX):
         # move back to center
         currentPosX, currentUPosX = get_position(lib, device_id1)
         currentPosY, currentUPosY = get_position(lib, device_id2)
-        move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
-        move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
-        imgCount += 1
+        if blob[0] < 0:
+            move(lib, device_id1, currentPosX - xPxToSteps + 13, currentUPosX)
+            move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
+        else:
+            move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX)
+            move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY)
         time.sleep(2)
+
+        # take picture to see if center is reached correctly
+        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())  # initialize camera
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)  # start getting live data
+        converter = pylon.ImageFormatConverter()  # initialize image converter
+        converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+        converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)  # get one image
+        image2 = converter.Convert(grabResult2)  # convert image
+        img2 = image2.GetArray()  # turn image into an array
+        grabResult2.Release()  # release current image
+        camera.StopGrabbing()  # stop getting images
+        filename = "img/{0}/frame{1}_img{2}_from_{3}_center{2}.jpeg".format(directoryName, frameCount, imgCount,
+                                                                            len(blobs))
+        img2 = cv.circle(img2, (1024, 1024), radius=10, color=(50, 205, 50),
+                         thickness=-1)  # draw circle in image center (to test precision)
+        cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+        cv.line(img2, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+        cv.imwrite(filename, img2)
+
+        imgCount += 1
 
     # move one frame from center
     currentPosX, currentUPosX = get_position(lib, device_id1)

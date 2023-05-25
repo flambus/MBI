@@ -294,7 +294,7 @@ while currentPosX < finishPosX:
     y_distances = []
     if len(centers) > 0:
         x_distances.append(centers[0][0])
-        y_distances.append(centers[0][0])
+        y_distances.append(centers[0][1])
         if len(centers) > 1:
             centers = centers.sort(key=lambda x: x[0])
             for i in range(1, len(centers)):
@@ -302,11 +302,11 @@ while currentPosX < finishPosX:
                 if centers[i][1] > 0 and centers[i - 1][1] > 0 and centers[i][1] > centers[i - 1][1]:       # both points above 0, current point higher than last point
                     y_distances.append(centers[i][1] - centers[i - 1][1])
                 elif centers[i][1] > 0 and centers[i - 1][1] > 0 and centers[i][1] < centers[i - 1][1]:     # both points above 0, current point higher than last point
-                    y_distances.append(centers[i - 1][1] - centers[i][1])
+                    y_distances.append(centers[i][1] - centers[i - 1][1])
                 elif centers[i][1] > 0 and centers[i - 1][1] < 0:                                           # current point above 0, last point below 0, current point higher than last
                     y_distances.append(np.abs(centers[i - 1][1]) + centers[i][1])                           
                 elif centers[i][1] < 0 and centers[i - 1][1] > 0:                                           # current point below 0, last point above 0
-                    y_distances.append(np.abs(centers[i][1]) + centers[i - 1][1])
+                    y_distances.append(-(np.abs(centers[i][1]) + centers[i - 1][1]))
                 elif centers[i][1] < 0 and centers[i - 1][1] < 0 and centers[i][1] > centers[i - 1][1]:     # both points below 0, current point higher than last point
                     y_distances.append(np.abs(centers[i - 1][1]) - np.abs(centers[i][1]))
                 elif centers[i][1] < 0 and centers[i - 1][1] < 0 and centers[i][1] < centers[i - 1][1]:     # both points below 0, current point higher than last point
@@ -369,19 +369,11 @@ while currentPosX < finishPosX:
         # move back to center
         currentPosX, currentUPosX = get_position(lib, device_id1)
         currentPosY, currentUPosY = get_position(lib, device_id2)
-        # if center[0] < 0 and correction == -14: # object was on the left and last movement was from left to right
-        #     move(lib, device_id1, currentPosX - correction, currentUPosX) # left-right correction
-        #     move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX) # x movement
-        #     move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY) # y movement
         if center[0] < 0 and correction == 14: # object was on the left and last movement was from right to left
             move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
             move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX) # x movement
             move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY) # y movement
             correction = -14
-        # elif center[0] > 0 and correction == 14: # object was on the right and last movement was from right to left
-        #     move(lib, device_id1, currentPosX - correction, currentUPosX) # left-right correction
-        #     move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX) # x movement
-        #     move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY) # y movement
         elif center[0] > 0 and correction == -14: # object was on the right and last movement was from left to right
             move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
             move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX) # x movement
@@ -400,8 +392,7 @@ while currentPosX < finishPosX:
         img2 = image2.GetArray()  # turn image into an array
         grabResult2.Release()  # release current image
         camera.StopGrabbing()  # stop getting images
-        filename = "img/{0}/frame{1}_img{2}_from_{3}_center{2}.jpeg".format(directoryName, frameCount, imgCount,
-                                                                            len(center))
+        filename = "img/{0}/frame{1}_img{2}_from_{3}_center.jpeg".format(directoryName, frameCount, imgCount, len(centers))
         img2 = cv.circle(img2, (1024, 1024), radius=10, color=(50, 205, 50),
                          thickness=-1)  # draw circle in image center (to test precision)
         cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)

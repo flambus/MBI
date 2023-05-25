@@ -16,12 +16,11 @@ from datetime import datetime
 import pathlib
 import matplotlib.pyplot as plt
 import re
-import skimage.feature
+# import skimage.feature
 
-port = 'COM7'
+port = 'COM6'
 board = pyfirmata.Arduino(port)
-hold = 5
-pin = 4
+pin = 13
 
 # conecting to the first available camera
 camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
@@ -37,14 +36,17 @@ converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 if sys.version_info >= (3, 0):
     import urllib.parse
 
-sys.path.append(r'C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\crossplatform\wrappers'
-                r'\python')
+# sys.path.append(r'C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\crossplatform\wrappers'r'\python')
+sys.path.append(r'C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/crossplatform/wrappers/python')
+
 
 if platform.system() == "Windows":
     # Determining the directory with dependencies for windows depending on the bit depth.
     arch_dir = "win64" if "64" in platform.architecture()[0] else "win32"  #
-    libdir = r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64"
-    sys.path.append(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64")
+    # libdir = r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64"
+    libdir = r"C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/win64"
+    # sys.path.append(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64")
+    sys.path.append(r"C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/win64")
     if sys.version_info >= (3, 8):
         os.add_dll_directory(libdir)
     else:
@@ -250,14 +252,14 @@ currentPosX, currentUPosX = get_position(lib, device_id1)
 currentPosY, currentUPosY = get_position(lib, device_id2)
 print(f"Current position: {currentPosX}, {currentPosY}")
 
-# xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
-# yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
-#
-# move(lib, device_id1, currentPosX + xDif, currentUPosX)
-# move(lib, device_id2, currentPosY + yDif, currentUPosY)
+xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
+yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
 
-# currentPosX, currentUPosX = get_position(lib, device_id1)
-# currentPosY, currentUPosY = get_position(lib, device_id2)
+move(lib, device_id1, currentPosX + xDif, currentUPosX)
+move(lib, device_id2, currentPosY + yDif, currentUPosY)
+
+currentPosX, currentUPosX = get_position(lib, device_id1)
+currentPosY, currentUPosY = get_position(lib, device_id2)
 
 frameCount = 1
 
@@ -267,7 +269,7 @@ year = now.strftime("%Y")
 month = now.strftime("%m")
 day = now.strftime("%d")
 directoryName = "{0}-{1}-{2}".format(year, month, day)
-path = "C:/Users/lab/Desktop/LIA/MBI/img/" + directoryName
+path = "C:/lab/MBI/img" + directoryName
 directory = pathlib.Path(path)
 if directory.exists():
     for file_name in os.listdir(path):

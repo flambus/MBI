@@ -32,8 +32,9 @@ if sys.version_info >= (3, 0):
 # ximc_package_dir = os.path.join(ximc_dir, "crossplatform", "wrappers", "python") # Formation of the directory name with python dependencies.
 # sys.path.append(ximc_package_dir)  # add pyximc.py wrapper to python path
 
-sys.path.append(r'C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\crossplatform\wrappers'
-                r'\python')
+# sys.path.append(r'C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\crossplatform\wrappers'
+                # r'\python')
+sys.path.append(r'C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/crossplatform/wrappers/python')
 
 # Depending on your version of Windows, add the path to the required DLLs to the environment variable
 # bindy.dll
@@ -43,8 +44,10 @@ if platform.system() == "Windows":
     # Determining the directory with dependencies for windows depending on the bit depth.
     arch_dir = "win64" if "64" in platform.architecture()[0] else "win32"  #
     # libdir = os.path.join(ximc_dir, arch_dir)
-    libdir = r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64"
-    sys.path.append(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64")
+    # libdir = r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64"
+    libdir = r"C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/win64"
+    # sys.path.append(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64")
+    sys.path.append(r"C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/win64")
     print(libdir)
     if sys.version_info >= (3, 8):
         os.add_dll_directory(libdir)
@@ -270,56 +273,79 @@ print("\nOpen device " + repr(open_nameY))
 device_id2 = lib.open_device(open_nameY)
 print("Device id: " + repr(device_id2))
 
-steps = 5
-stepValue = 80
-for i in range(steps):
-    grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-    image = converter.Convert(grabResult)
-    img = image.GetArray()
-    cv2.namedWindow('title', cv2.WINDOW_NORMAL)
-    cv2.imshow('title', img)
-    cv2.imwrite('img/calibration/22-06_moved100steps{0}.png'.format(i), img)
+test_get_position(lib, device_id)
+test_get_position(lib, device_id2)
 
-    startposX, ustartposX = test_get_position(lib, device_id)
-    test_move(lib, device_id, startposX + stepValue, ustartposX)
-    time.sleep(2)
-    grabResult.Release()
+# move for five test steps, then move back
+# grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+# image = converter.Convert(grabResult)
+# img = image.GetArray()
+# cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+# cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+# cv2.imwrite('img/calibration/23-05-10_moved0.png', img)
+# time.sleep(2)
+# grabResult.Release()
 
-startposX, ustartposX = test_get_position(lib, device_id)
-test_move(lib, device_id, startposX - (stepValue * steps), ustartposX)
-startposX, ustartposX = test_get_position(lib, device_id2)
+# steps = 10
+# stepValue = 56
+# for i in range(steps):
+#     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+#     image = converter.Convert(grabResult)
+#     img = image.GetArray()
+#     startposX, ustartposX = test_get_position(lib, device_id)
+#     test_move(lib, device_id, startposX + stepValue, ustartposX)
+#     time.sleep(2)
+#     # cv2.namedWindow('title', cv2.WINDOW_NORMAL)
+#     # cv2.imshow('title', img)
+#     cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+#     cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+#     cv2.imwrite('img/calibration/23-05-10_moved100steps{0}.png'.format(i), img)
+#     grabResult.Release()
+# startposX, ustartposX = test_get_position(lib, device_id)
+# test_move(lib, device_id, startposX - (stepValue * steps), ustartposX)
+# startposX, ustartposX = test_get_position(lib, device_id2)
 
-## test step one direction and back
 
+# test step one direction and back
 # startposX, ustartposX = test_get_position(lib, device_id)
 # grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 # image = converter.Convert(grabResult)
 # img = image.GetArray()
 # cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
 # cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-# cv2.imwrite('img/13-06_startingPosition.png', img)
+# cv2.imwrite('img/calibration/23-05-10/0_23-05-10_startingPosition.png', img)
 # grabResult.Release()
-#
-# test_move(lib, device_id, startposX - 100, ustartposX)
-# time.sleep(2)
-# grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-# image = converter.Convert(grabResult)
-# img = image.GetArray()
-# cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
-# cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-# cv2.imwrite('img/13-06_moved100steps.png', img)
-# grabResult.Release()
-#
+
+# test_move(lib, device_id, startposX + 14, ustartposX)
+# time.sleep(3)
+
+# for i in range(3):
+#     startposX, ustartposX = test_get_position(lib, device_id)
+#     test_move(lib, device_id, startposX + 40, 0)
+#     time.sleep(3)
+#     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+#     image = converter.Convert(grabResult)
+#     img = image.GetArray()
+#     cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+#     cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+#     cv2.imwrite("img/calibration/23-05-10/23-05-10_moved100steps_{0}.png".format(i), img)
+#     grabResult.Release()
+
 # startposX, ustartposX = test_get_position(lib, device_id)
-# test_move(lib, device_id, startposX + 100, ustartposX)
-# time.sleep(2)
-# grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-# image = converter.Convert(grabResult)
-# img = image.GetArray()
-# cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
-# cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-# cv2.imwrite('img/13-06_moved100stepsBack.png', img)
-# grabResult.Release()
+# test_move(lib, device_id, startposX - 14, ustartposX)
+# time.sleep(3)
+
+# for i in range(3):
+#     startposX, ustartposX = test_get_position(lib, device_id)
+#     test_move(lib, device_id, startposX - 40, 0)
+#     time.sleep(3)
+#     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+#     image = converter.Convert(grabResult)
+#     img = image.GetArray()
+#     cv2.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+#     cv2.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+#     cv2.imwrite("img/calibration/23-05-10/23-05-10_moved100stepsBack_{0}.png".format(i), img)
+#     grabResult.Release()
 
 
 # Releasing the resource

@@ -18,10 +18,9 @@ import matplotlib.pyplot as plt
 import re
 import skimage.feature
 
-port = 'COM7'
+port = 'COM6'
 board = pyfirmata.Arduino(port)
-hold = 5
-pin = 4
+pin = 13
 
 # conecting to the first available camera
 camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
@@ -37,14 +36,13 @@ converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 if sys.version_info >= (3, 0):
     import urllib.parse
 
-sys.path.append(r'C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\crossplatform\wrappers'
-                r'\python')
+sys.path.append(r'C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/crossplatform/wrappers/python')
 
 if platform.system() == "Windows":
     # Determining the directory with dependencies for windows depending on the bit depth.
     arch_dir = "win64" if "64" in platform.architecture()[0] else "win32"  #
-    libdir = r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64"
-    sys.path.append(r"C:\Users\lab\Desktop\LIA\Stage\integration\libximc_2.13.2\ximc-2.13.3\ximc\win64")
+    libdir = r"C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/win64"
+    sys.path.append(r"C:/lab/MBI/libximc_2.13.2/ximc-2.13.3/ximc/win64")
     if sys.version_info >= (3, 8):
         os.add_dll_directory(libdir)
     else:
@@ -237,37 +235,59 @@ if flag_virtual == 1:
     print("If you want to open a real controller, connect it or close the application that uses it.")
 
 laserX_raw, laserY_raw = -1, -1
-while 1:
-    # get current live image
-    grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+# while 1:
+#     # get current live image
+#     grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
-    def click(event, x, y, flags, param):
-        global laserX_raw, laserY_raw
-        if event == cv.EVENT_LBUTTONDOWN:
-            laserX_raw, laserY_raw = x, y
-            print(x, y)
+#     def click(event, x, y, flags, param):
+#         global laserX_raw, laserY_raw
+#         if event == cv.EVENT_LBUTTONDOWN:
+#             laserX_raw, laserY_raw = x, y
+#             print(x, y)
 
-    if grabResult.GrabSucceeded():
-        image = converter.Convert(grabResult)
-        img = image.GetArray()
-        cv.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-        cv.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
-        cv.namedWindow('image', cv.WINDOW_NORMAL)
-        cv.imshow('image', img)
-        cv.setMouseCallback('image', click)
-    grabResult.Release()
+#     if grabResult.GrabSucceeded():
+#         image = converter.Convert(grabResult)
+#         img = image.GetArray()
+#         cv.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+#         cv.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+#         cv.namedWindow('image', cv.WINDOW_NORMAL)
+#         cv.imshow('image', img)
+#         cv.setMouseCallback('image', click)
+#     grabResult.Release()
 
-    k = cv.waitKey(20) & 0xFF
-    if k == ord('a'):
-        break
+#     k = cv.waitKey(20) & 0xFF
+#     if k == ord('a'):
+#         break
 
-cv.destroyAllWindows()
+# cv.destroyAllWindows()
 
-laserX = laserX_raw - 1024
-laserY = laserY_raw - 1024
-laserX = int(round((laserX * 0.1925), 3))
-laserY = int(round((laserY * 0.1925), 3))
+stepSize = 0.323
+
+# laserX = laserX_raw - 1024
+# laserY = laserY_raw - 1024
+# laserX = int(round((laserX * stepSize), 3))
+# laserY = int(round((laserY * stepSize), 3))
+laserX = 0
+laserY = 0
 print(laserX, laserY)
+
+# create a directory to save live images
+now = datetime.now()
+year = now.strftime("%Y")
+month = now.strftime("%m")
+day = now.strftime("%d")
+directoryName = "{0}-{1}-{2}".format(year, month, day)
+path = "C:/lab/MBI/img/" + directoryName
+directory = pathlib.Path(path)
+if directory.exists():
+    # for file_name in os.listdir(path):
+    #     file = path + "/" + file_name
+    #     os.remove(file)
+    pass
+else:
+    os.mkdir(path)
+
+imageCount = 0
 
 ix, iy = -1, -1
 prevX, prevY = -1, -1
@@ -277,27 +297,45 @@ while camera.IsGrabbing():
     if grabResult.GrabSucceeded():
         image = converter.Convert(grabResult)
         img = image.GetArray()
-        cv.line(img, pt1=(0, laserY_raw), pt2=(2048, laserY_raw), color=(0, 0, 255), thickness=1)
-        cv.line(img, pt1=(laserX_raw, 2048), pt2=(laserX_raw, 0), color=(0, 0, 255), thickness=1)
+        img_clean = np.copy(img)
+        # cv.line(img, pt1=(0, laserY_raw), pt2=(2048, laserY_raw), color=(0, 0, 255), thickness=1)
+        # cv.line(img, pt1=(laserX_raw, 2048), pt2=(laserX_raw, 0), color=(0, 0, 255), thickness=1)
+        cv.line(img, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+        cv.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+        img = cv.resize(img, (2048, 2048))
         cv.namedWindow('image', cv.WINDOW_NORMAL)
         cv.imshow('image', img)
     grabResult.Release()
     k = cv.waitKey(20) & 0xFF
     if k == ord('n'):
+        print('n pressed')
         # move one frame from center
         currentPosX, currentUPosX = get_position(lib, device_id1)
         currentPosY, currentUPosY = get_position(lib, device_id2)
-        moveToNextFrame = int(round(2048 * 0.1925))
+        print(currentPosX, currentPosY)
+        moveToNextFrame = int(round(2048 * stepSize))
+        print(moveToNextFrame)
         move(lib, device_id1, currentPosX + moveToNextFrame, currentUPosX)
         print("\n-------\nframe changed\n-------\n")
-        time.sleep(2)
+        #time.sleep(2)
     elif k == ord('a'):
         break
-    elif k == ord('l'):
+    elif k == ord('o'):
+        print('o pressed')
         # open and close gate
         board.digital[pin].write(1)
-        time.sleep(120)
+        # time.sleep(120)
+        # board.digital[pin].write(0)
+    elif k == ord('c'):
+        print('c pressed')
+        # open and close gate
         board.digital[pin].write(0)
+    elif k == ord('s'):
+        print('s pressed')
+        # save current live image
+        filename = "{0}/frame{1}.jpeg".format(path, imageCount)
+        cv.imwrite(filename, img_clean)
+        imageCount += 1
 
     # mouse callback function
     def click(event, x, y, flags, param):
@@ -307,13 +345,14 @@ while camera.IsGrabbing():
             # if ix == -1:
             ix, iy = x, y
             print("x, y:")
+            print('y')
             print(x, y)
             blob = [ix - 1024, iy - 1024]
-            print("blob:")
+            print("object:")
             print(blob)
             # compute needed steps to reach egg (pixels -> stage steps)
-            xPxToSteps = int(round((blob[0] * 0.1925) - laserX, 3))
-            yPxToSteps = int(round((blob[1] * 0.1925) - laserY, 3))
+            xPxToSteps = int(round((blob[0] * stepSize) - laserX, 3))
+            yPxToSteps = int(round((blob[1] * stepSize) - laserY, 3))
             currentPosX, currentUPosX = get_position(lib, device_id1)
             currentPosY, currentUPosY = get_position(lib, device_id2)
             print(prevX)
@@ -331,7 +370,7 @@ while camera.IsGrabbing():
             move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX)
             move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY)
             print("\ngoing to {0}x, {1}y\n".format(blob[0], blob[1]))
-            time.sleep(2)
+            #time.sleep(2) ###was removed to have continuous cam image flow
             prevX = ix - 1024
             print("prevX: ", prevX)
 

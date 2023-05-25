@@ -288,6 +288,8 @@ else:
     os.mkdir(path)
 
 imageCount = 0
+gateOpened = False
+startTime = -1
 
 ix, iy = -1, -1
 prevX, prevY = -1, -1
@@ -304,6 +306,12 @@ while camera.IsGrabbing():
         cv.line(img, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
         img = cv.resize(img, (2048, 2048))
         cv.namedWindow('image', cv.WINDOW_NORMAL)
+        if gateOpened == True:
+            diff = (datetime.now() - startTime).seconds
+            hours = diff // 3600
+            minutes = diff // 60
+            seconds = diff % 60
+            cv.putText(img, '{0}:{1}:{2}'.format(hours, minutes, seconds), (70,70), cv.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 0), 2, cv.LINE_AA) # adding timer text
         cv.imshow('image', img)
     grabResult.Release()
     k = cv.waitKey(20) & 0xFF
@@ -324,12 +332,16 @@ while camera.IsGrabbing():
         print('o pressed')
         # open and close gate
         board.digital[pin].write(1)
+        gateOpened = True
+        startTime = datetime.now()
         # time.sleep(120)
         # board.digital[pin].write(0)
     elif k == ord('c'):
         print('c pressed')
         # open and close gate
         board.digital[pin].write(0)
+        gateOpened = False
+        startTime = -1
     elif k == ord('s'):
         print('s pressed')
         # save current live image

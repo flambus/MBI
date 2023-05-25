@@ -205,21 +205,21 @@ uFinishPosY = 0       #207
 # step size (per pixel) from stage_test.py calibration
 stepSize = 0.323
 
-# get current position and move to start
-currentPosX, currentUPosX = get_position(lib, device_id1)
-currentPosY, currentUPosY = get_position(lib, device_id2)
-print(f"Current position: {currentPosX}, {currentPosY}")
+# # get current position and move to start
+# currentPosX, currentUPosX = get_position(lib, device_id1)
+# currentPosY, currentUPosY = get_position(lib, device_id2)
+# print(f"Current position: {currentPosX}, {currentPosY}")
 
-if currentPosX > startPosX:
-    correction = 14
-else:
-    correction = -14
+# if currentPosX > startPosX:
+#     correction = 14
+# else:
+#     correction = -14
 
-xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
-yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
+# xDif = (startPosX + uStartPosX) - (currentPosX + currentUPosX)
+# yDif = (startPosY + uStartPosY) - (currentPosY + currentUPosY)
 
-move(lib, device_id1, currentPosX + xDif, currentUPosX)
-move(lib, device_id2, currentPosY + yDif, currentUPosY)
+# move(lib, device_id1, currentPosX + xDif, currentUPosX)
+# move(lib, device_id2, currentPosY + yDif, currentUPosY)
 
 currentPosX, currentUPosX = get_position(lib, device_id1)
 currentPosY, currentUPosY = get_position(lib, device_id2)
@@ -285,114 +285,137 @@ while currentPosX < finishPosX:
         center = [x, y]
         centers.append(center)
 
-    # convert x/y-values to be coordinates relative to image center (center = (x0, y0))
+    # convert y-values to be coordinates relative to image center (center = (x = 1024, y = 1024))
     for center in centers:
-        center[0] = center[0] - 1024
         center[1] = center[1] - 1024
+
+    # calculate relative x/y-distances from first egg to position (0, 1024) and then from egg to egg
+    x_distances = []
+    y_distances = []
+    if len(centers) > 0:
+        x_distances.append(centers[0][0])
+        y_distances.append(centers[0][1])
+        if len(centers) > 1:
+            centers = centers.sort(key=lambda x: x[0])
+            for i in range(1, len(centers)):
+                x_distances.append(centers[i][0] - centers[i - 1][0])
+                if centers[i][1] >= 0 and centers[i - 1][1] >= 0:                   # both points above 0, current point higher than last point
+                    if centers[i][1] > centers[i - 1][1]:
+                        y_distances.append(centers[i][1] - centers[i - 1][1])
+                    elif centers[i][1] < centers[i - 1][1]:                         # both points above 0, current point higher than last point
+                        y_distances.append(centers[i][1] - centers[i - 1][1])
+                elif centers[i][1] >= 0 and centers[i - 1][1] <= 0:                 # current point above 0, last point below 0, current point higher than last
+                    y_distances.append(np.abs(centers[i - 1][1]) + centers[i][1])                           
+                elif centers[i][1] <= 0 and centers[i - 1][1] >= 0:                 # current point below 0, last point above 0
+                    y_distances.append(-(np.abs(centers[i][1]) + centers[i - 1][1]))
+                elif centers[i][1] <= 0 and centers[i - 1][1] <= 0:                 # both points below 0, current point higher than last point
+                    if centers[i][1] > centers[i - 1][1]:
+                        y_distances.append(np.abs(centers[i - 1][1]) - np.abs(centers[i][1]))
+                    elif centers[i][1] < centers[i - 1][1]:                         # both points below 0, current point higher than last point
+                        y_distances.append(centers[i][1] - centers[i - 1][1])
+
+    # make coordinate pairs from x/y-distances + calculate sum of egg distances on x-axis
+    centers = []
+    xDistSum = 0
+    for i in range (len(x_distances)):
+        center = [x_distances[i], y_distances[i]]
+        centers.append(center)
+        xDistSum += x_distances[i]
+
+    print('centers: ', centers)
+    print('xDistSum: ', xDistSum)
+
+    # steps on x-axis for moving from image center to left end of image + from last egg to right end of image
+    xPxToSteps = 1024 * stepSize * -1
+    currentPosX, currentUPosX = get_position(lib, device_id1)
+    move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX)
+    move(lib, device_id1, currentPosX + 1, currentUPosX) #correction
+
+    # calculate remaining distance to end of image behind last egg + to center of next frame
+    xToNextFrame = ((2048 - xDistSum) * stepSize) + (1024 * stepSize)
+    print('xToNextFrame: ', xToNextFrame)
+
+    # initialize counting variables for x in y, in case of canceled run stage goes back to starting position 
+    xDist = 0
+    yDist = 0
 
     # move each egg from the current image to center and illuminate it for two minutes
     imgCount = 1
-    for center in centers:
-        # compute needed steps to reach egg (pixels -> stage steps)
-        xPxToSteps = int(round((center[0] * stepSize), 3))
-        yPxToSteps = int(round((center[1] * stepSize), 3))
+    endTime_irradiation = -1
+    centersIndex = 0
+    while centersIndex < len(centers):
+        print('len(centers): ', len(centers))
+        if time.time() >= endTime_irradiation:
+            print('current time: ', time.time())
+            # close gate if not already closed
+            board.digital[pin].write(0)
+            print('gate closed')
+            
+            # compute needed steps to reach egg (pixels -> stage steps)
+            xPxToSteps = int(round((centers[centersIndex][0] * stepSize), 3))
+            yPxToSteps = int(round((centers[centersIndex][1] * stepSize), 3))
+            print('xPxToSteps, yPxToSteps: ', xPxToSteps, yPxToSteps)
 
-        # get current position and move to required position
-        currentPosX, currentUPosX = get_position(lib, device_id1)
-        currentPosY, currentUPosY = get_position(lib, device_id2)
+            xDist += centers[centersIndex][0]
+            yDist += centers[centersIndex][1]
+            print('xDist, yDist: ', xDist, yDist)
 
-        if center[0] < 0 and correction == -14: # object on the left and last movement was from left to right
-            move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
+            # get current position and move to required position
+            currentPosX, currentUPosX = get_position(lib, device_id1)
+            currentPosY, currentUPosY = get_position(lib, device_id2)
+
             move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX) # x movement
             move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY) # y movement
-            correction = 14 # now last movement was from right to left
-        elif center[0] < 0 and correction == 14: # object on the left and last movement was from right to left
-            move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX) # x movement
-            move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY) # y movement
-        elif center[0] > 0 and correction == 14: # object on the right and last movement was from right to left
-            move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
-            move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX) # x movement
-            move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY) # y movement
-            correction = -14 # now last movement was from left to right
-        elif center[0] > 0 and correction == -14: # object on the right and last movement was from left to right
-            move(lib, device_id1, currentPosX + xPxToSteps, currentUPosX) # x movement
-            move(lib, device_id2, currentPosY + yPxToSteps, currentUPosY) # y movement
 
-        print("\ngoing to {0}x, {1}y\n".format(center[0], center[1]))
-        time.sleep(2)
+            print("\ngoing to {0}x, {1}y\n".format(centers[centersIndex][0], centers[centersIndex][1]))
 
-        # save current live image
-        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())  # initialize camera
-        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)  # start getting live data
-        converter = pylon.ImageFormatConverter()  # initialize image converter
-        converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-        converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)  # get one image
-        image2 = converter.Convert(grabResult2)  # convert image
-        img2 = image2.GetArray()  # turn image into an array
-        grabResult2.Release()  # release current image
-        camera.StopGrabbing()  # stop getting images
-        filename = "img/{0}/frame{1}_img{2}_from_{3}.jpeg".format(directoryName, frameCount, imgCount, len(centers))
-        print(filename)
-        cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
-        cv.line(img2, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-        cv.imwrite(filename, img2)  # save new image
+            # save current live image
+            camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())  # initialize camera
+            camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)  # start getting live data
+            converter = pylon.ImageFormatConverter()  # initialize image converter
+            converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+            converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+            grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)  # get one image
+            image2 = converter.Convert(grabResult2)  # convert image
+            img2 = image2.GetArray()  # turn image into an array
+            grabResult2.Release()  # release current image
+            camera.StopGrabbing()  # stop getting images
+            filename = "img/{0}/frame{1}_img{2}_from_{3}.jpeg".format(directoryName, frameCount, imgCount, len(centers))
+            print(filename)
+            cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
+            cv.line(img2, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
+            cv.imwrite(filename, img2)  # save new image
 
-        # open and close gate
-        board.digital[pin].write(1)
-        time.sleep(1)
-        board.digital[pin].write(0)
-        time.sleep(1)
+            # open and close gate
+            board.digital[pin].write(1)
+            print('gate opened')
+            endTime_irradiation = time.time() + 1
 
-        # move back to center
-        currentPosX, currentUPosX = get_position(lib, device_id1)
-        currentPosY, currentUPosY = get_position(lib, device_id2)
-        if center[0] < 0 and correction == 14: # object was on the left and last movement was from right to left
-            move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
-            move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX) # x movement
-            move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY) # y movement
-            correction = -14
-        elif center[0] > 0 and correction == -14: # object was on the right and last movement was from left to right
-            move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
-            move(lib, device_id1, currentPosX - xPxToSteps, currentUPosX) # x movement
-            move(lib, device_id2, currentPosY - yPxToSteps, currentUPosY) # y movement
-            correction = 14
-        time.sleep(2)
+            centersIndex += 1
+            print('centersIndex: ', centersIndex)
 
-        # take picture to see if center is reached correctly
-        camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())  # initialize camera
-        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)  # start getting live data
-        converter = pylon.ImageFormatConverter()  # initialize image converter
-        converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-        converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-        grabResult2 = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)  # get one image
-        image2 = converter.Convert(grabResult2)  # convert image
-        img2 = image2.GetArray()  # turn image into an array
-        grabResult2.Release()  # release current image
-        camera.StopGrabbing()  # stop getting images
-        filename = "img/{0}/frame{1}_img{2}_from_{3}_center.jpeg".format(directoryName, frameCount, imgCount, len(centers))
-        img2 = cv.circle(img2, (1024, 1024), radius=10, color=(50, 205, 50),
-                         thickness=-1)  # draw circle in image center (to test precision)
-        cv.line(img2, pt1=(0, 1024), pt2=(2048, 1024), color=(0, 0, 255), thickness=1)
-        cv.line(img2, pt1=(1024, 2048), pt2=(1024, 0), color=(0, 0, 255), thickness=1)
-        cv.imwrite(filename, img2)
+        k = cv.waitKey(20) & 0xFF
+        if k == ord('c'):
+            print('c pressed')
+            currentPosX, currentUPosX = get_position(lib, device_id1)
+            currentPosY, currentUPosY = get_position(lib, device_id2)
+            xDistToSteps = xDist * stepSize
+            yDistToSteps = yDist * stepSize
+            move(lib, device_id1, currentPosX - xDistToSteps, currentUPosX) # x movement back
+            move(lib, device_id2, currentPosY - yDistToSteps, currentUPosY) # y movement back
+            move(lib, device_id1, currentPosX + (1024 * stepSize), currentUPosX) # x movement back to previous image center
+            centersIndex = 0
 
         imgCount += 1
 
-    # move one frame from center
+    # move to next frame behind last egg
     currentPosX, currentUPosX = get_position(lib, device_id1)
     currentPosY, currentUPosY = get_position(lib, device_id2)
-    moveToNextFrame = int(round(2048 * stepSize))
 
-    if correction == 14: # last movement was from right to left, now movement to the right
-        move(lib, device_id1, currentPosX + correction, currentUPosX) # left-right correction
-        move(lib, device_id1, currentPosX + moveToNextFrame, currentUPosX) # x movement
-    else:
-        move(lib, device_id1, currentPosX + moveToNextFrame, currentUPosX) # x movement
+    move(lib, device_id1, currentPosX + xToNextFrame, currentUPosX) # x movement
     
     print("\n-------\nframe changed\n-------\n")
     frameCount += 1
-    time.sleep(2)
 
     # initialize camera for next frame
     camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
